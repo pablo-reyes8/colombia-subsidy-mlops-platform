@@ -1,82 +1,78 @@
-# Colombia Subsidy ML Prediction (GEIH)
+# Colombia Subsidy ML (GEIH)
 
-A machine learning project leveraging Colombia’s GEIH household survey to build and evaluate predictive models for identifying subsidy-eligible households. By combining thorough exploratory analysis with advanced imbalance-handling techniques, we aim to optimize resource allocation and help reduce socioeconomic inequality.
+Professionalized MLOps-style project for analyzing GEIH data and training models to identify subsidy-eligible households under extreme class imbalance. The original notebooks are preserved under `notebooks/`, while the production path is now organized into reproducible scripts, configs, and pipelines.
 
-## Notebooks
+## What This Repo Now Provides
+- Reproducible dataset build pipeline from raw GEIH tables.
+- Modular feature engineering and preprocessing.
+- Train/evaluate/inference pipelines runnable from CLI or scripts.
+- Two-stage cascade model and anomaly detection support.
+- Config-driven artifacts and outputs.
+- Tests and Docker for portability.
 
-1. **Exploratory Analysis**  
-   A detailed walkthrough of data cleaning, descriptive statistics and visualizations. Here we:
-   - Quantify subsidy coverage and its distribution across income, social class, geography and demographic groups  
-   - Contrast pre- and post-subsidy income distributions to measure impact on inequality  
-   - Identify which GEIH variables (household size, income, education, labor formality, etc.) most strongly correlate with subsidy receipt  
-
-2. **Advanced Modeling**  
-   In this notebook, we explore and implement a variety of intermediate-to-advanced machine learning techniques to tackle a highly imbalanced binary classification problem. Our primary goal is to boost the model’s ability to correctly identify instances of the minority class (Class 1) without sacrificing overall performance. Key methods include:  
-   - Hybrid resampling (SMOTEENN, Hard-Negative Mining)  
-   - Cost-sensitive algorithms and class-weight tuning  
-   - Threshold optimization via Precision–Recall curves
-   - Two Model Cascade (coarse filter + fine-tuning classifier)
-   - Ensemble and Boosting strategies (Balanced Random Forest, XGBoost)
-   - One Class Models (SVM, Isoletion Forest)  
-
-## Key Highlights
-
-- **Dramatic Income Improvements & Persistent Coverage Gap**  
-  Cash transfers more than double mean income (from ~COP 1 M to ~COP 2.7 M) and quadruple median income (from COP 700 k to COP 3 M), compressing the distribution and eliminating extreme low-income outliers. Yet only 8.6 % of individuals receive a subsidy, highlighting a need to broaden coverage.
-
-- **Top Predictive Features for Targeting**  
-  The most informative GEIH variables are combined housing cost, household size, declared monthly income, labor‐market formality (contract type, pension contributions) and educational attainment. Embedding these dimensions into eligibility rules markedly improves identification of vulnerable households.
-
-- **Cascading ML Pipeline for Balanced Performance**  
-  A two-stage approach, first a high-recall XGBoost filter, then a precision-focused Random Forest with tuned probability thresholds, meets recall targets (≥ 70 %) while containing false positives, demonstrating that pipeline design outweighs any single algorithm.
-
-- **Data Scarcity Limits Supervised Precision**  
-  Even with SMOTEENN, Borderline-SMOTE, class-weighted losses, polynomial/PCA feature engineering and exhaustive hyperparameter tuning, supervised cascades plateau at ~20–25 % precision on the subsidy class, constrained by the rarity and overlap of positive examples.
-
-- **Anomaly Detection Excels on High Precision**  
-  Framing subsidy recipients as anomalies (Isolation Forest, One-Class SVM) achieves > 90 % precision—at the expense of lower recall—offering a complementary strategy when high confidence in positive predictions is paramount.
-
-- **Modular Architecture Enables Policy-Driven Trade-Offs**  
-  Each stage (filter, refiner, anomaly detector) can be independently adjusted to favor recall or precision, allowing policymakers to recalibrate the system according to changing objectives or resource constraints.
-
-
-## Prerequisites
-
-The following Python packages (and their dependencies) are required:
-
-```bash
-pip install pandas numpy matplotlib sklearn imblearn xgboost random
+## Project Layout
+```
+.
+├─ artifacts/                 # model artifacts (ignored by git)
+├─ configs/                   # yaml configs for data and models
+├─ data/
+│  ├─ raw/                    # raw GEIH tables (CSV.rar)
+│  └─ processed/              # consolidated modeling dataset
+├─ notebooks/                 # original exploratory notebooks
+├─ scripts/                   # thin CLI wrappers
+├─ src/colombia_subsidy_ml/    # package (pipelines, models, utils)
+├─ tests/                     # pytest
+├─ Dockerfile
+├─ pyproject.toml
+└─ README.md
 ```
 
-## Data Description
+## Quickstart (CLI)
+Install deps and run any pipeline:
 
-The project relies in on folder and one file:
+```bash
+pip install -e .
 
-- **`data/CSV.rar/`**  
-  Contains the original May 2024 GEIH survey tables in CSV format:  
-  - `generales.csv`  
-  - `laborales.csv`  
-  - `hogar.csv`  
-  - `subsidios.csv`  
-  - `fuerza_trabajo.csv`  
-  - `desempleados.csv`  
+# Build dataset from raw GEIH tables
+python -m colombia_subsidy_ml build-dataset --config configs/dataset.yaml
 
-- **`data/Base_Modelo.csv/`**  
-  Contains the consolidated and preprocessed dataset used in the **Advanced Modeling** notebook (Script 2). This file merges, cleans and transforms the key variables needed for training and evaluating imbalance-aware classification models. 
+# Train cascade model
+python -m colombia_subsidy_ml train --config configs/train_cascade.yaml
 
-## How to Run
+# Evaluate on holdout
+python -m colombia_subsidy_ml evaluate --config configs/train_cascade.yaml
 
-Simply open the notebooks in order—first the **Exploratory Analysis** (`subsidy analysis.ipynb`), then the **Advanced Modeling** (`Full Maching Learning Modeling.ipynb`)—and execute each cell sequentially. All code chunks are fully documented for ease of follow-through
+# Predict using saved artifacts
+python -m colombia_subsidy_ml predict \
+  --config configs/train_cascade.yaml \
+  --input data/processed/Base_Modelo_Subsidios.csv \
+  --output artifacts/predictions.csv
+```
 
----
+## Quickstart (Scripts)
+```bash
+python scripts/build_dataset.py --config configs/dataset.yaml
+python scripts/train.py --config configs/train_cascade.yaml
+python scripts/evaluate.py --config configs/train_cascade.yaml
+python scripts/predict.py --config configs/train_cascade.yaml \
+  --input data/processed/Base_Modelo_Subsidios.csv \
+  --output artifacts/predictions.csv
+```
 
-Building on these insights can guide policymakers in refining eligibility criteria, expanding coverage and designing multidimensional safety nets that reach everyone who needs them most.  
+## Tests
+```bash
+pytest -q
+```
 
-## Contributing
+## Docker
+```bash
+docker build -t colombia-subsidy-ml .
+docker run --rm -v "$PWD":/app colombia-subsidy-ml \
+  python -m colombia_subsidy_ml train --config configs/train_cascade.yaml
+```
 
-Contributions are welcome! Please open issues or submit pull requests at  
-https://github.com/pablo-reyes8
+## Notes
+- The notebooks are kept intact for traceability.
+- You can tune thresholds, models, and resampling via YAML configs in `configs/`.
+- Artifacts are saved under `artifacts/`.
 
-## License
-
-This project is licensed under the Apache License 2.0.  

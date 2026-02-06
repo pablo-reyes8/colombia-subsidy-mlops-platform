@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "colombia-subsidy-ml"
+version = "0.1.0"
+description = "GEIH subsidy analysis and ML pipelines"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+authors = [
+  {name = "Pablo Reyes"}
+]
+dependencies = [
+  "pandas",
+  "numpy",
+  "scikit-learn",
+  "imbalanced-learn",
+  "xgboost",
+  "pyyaml",
+  "joblib",
+  "matplotlib",
+  "seaborn"
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov"]
+
+[project.scripts]
+subsidy-ml = "colombia_subsidy_ml.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

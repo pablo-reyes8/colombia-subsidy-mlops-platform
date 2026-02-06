@@ -1,0 +1,51 @@
+dataset_path: data/processed/Base_Modelo_Subsidios.csv
+target_col: Subsidio
+
+split:
+  test_size: 0.10
+  val_size: 0.20
+  random_state: 13
+  stratify: true
+
+preprocessing:
+  scale_numeric: minmax
+  onehot: true
+
+resampling:
+  use_smote: true
+  random_state: 13
+
+stage1:
+  model: xgboost
+  threshold: 0.50
+  params:
+    n_estimators: 200
+    max_depth: 6
+    learning_rate: 0.1
+    subsample: 0.8
+    colsample_bytree: 0.8
+    gamma: 0.0
+    reg_alpha: 0.0
+    reg_lambda: 1.0
+    eval_metric: logloss
+    random_state: 13
+    n_jobs: -1
+
+stage2:
+  model: random_forest
+  threshold: 0.50
+  params:
+    n_estimators: 300
+    max_depth: 10
+    min_samples_split: 4
+    min_samples_leaf: 2
+    max_features: sqrt
+    random_state: 13
+    n_jobs: -1
+
+artifacts:
+  dir: artifacts/cascade
+  save_preprocessor: true
+
+metrics:
+  recall_min: 0.70

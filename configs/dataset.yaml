@@ -1,0 +1,12 @@
+raw_dir: data/raw
+processed_path: data/processed/Base_Modelo_Subsidios.csv
+encoding: latin-1
+sep: ";"
+
+raw_tables:
+  generales: generales.csv
+  laborales: laborales.csv
+  hogar: hogar.csv
+  subsidios: subsidios.csv
+  fuerza_trabajo: fuerza_trabajo.csv
+  desempleados: desempleados.csv
