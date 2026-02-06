@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from functools import reduce
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -117,7 +117,7 @@ def _prepare_desempleados(df: pd.DataFrame) -> pd.DataFrame:
 def _prepare_hogar(df: pd.DataFrame) -> pd.DataFrame:
     mapping = {
         "DIRECTORIO": "Directorio",
-        "P6008": "N_Personas",
+        "P6008": "Numero_personas",
         "P5090": "Tipo de Vivienda",
         "P5100": "Cuota Amotrtizacion",
         "P5140": "Arriendo",
@@ -179,7 +179,7 @@ def build_dataset(
     dataframes = [generales, laborales, hogar, fuerza_trabajo, desempleados, subsidios]
     df_final = reduce(lambda left, right: pd.merge(left, right, on="Directorio", how="inner"), dataframes)
 
-    df_final["Costo Vivienda"] = df_final.apply(_combinar_valores, axis=1)
+    df_final["precio_combinado"] = df_final.apply(_combinar_valores, axis=1)
 
     target_sources = ["Subsidio Familiar", "Subsidio Educativo", "Subsidio Desempleo", "Subsidios"]
     df_final["Subsidio"] = np.where(
@@ -205,6 +205,8 @@ def build_dataset(
     )
 
     drop_cols = [
+        "Directorio",
+        "Departamento",
         "Genero",
         "Subsidio Educativo",
         "Subsidio Desempleo",
@@ -221,7 +223,9 @@ def build_dataset(
     return df_final
 
 
-def load_raw_tables(raw_dir: str | Path, *, encoding: str, sep: str, raw_tables: Dict[str, str]) -> Dict[str, pd.DataFrame]:
+def load_raw_tables(
+    raw_dir: Union[str, Path], *, encoding: str, sep: str, raw_tables: Dict[str, str]
+) -> Dict[str, pd.DataFrame]:
     raw_dir = Path(raw_dir)
     tables = {}
     for key, filename in raw_tables.items():
@@ -242,7 +246,7 @@ def build_from_config(config: dict) -> pd.DataFrame:
     return build_dataset(tables)
 
 
-def save_dataset(df: pd.DataFrame, path: str | Path) -> None:
+def save_dataset(df: pd.DataFrame, path: Union[str, Path]) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=False)

@@ -1,8 +1,10 @@
 from pathlib import Path
+from typing import Union
+
 import yaml
 
 
-def load_yaml(path: str | Path) -> dict:
+def load_yaml(path: Union[str, Path]) -> dict:
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Config not found: {path}")

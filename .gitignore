@@ -18,8 +18,9 @@ venv/
 # Artifacts and outputs
 artifacts/
 reports/
+data/raw/
+data/processed/
 
 # OS
 .DS_Store
 Thumbs.db
-

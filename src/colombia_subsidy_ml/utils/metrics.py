@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Any, Dict
 
 import numpy as np
 from sklearn.metrics import (
@@ -12,7 +12,7 @@ from sklearn.metrics import (
 )
 
 
-def compute_binary_metrics(y_true, y_pred) -> Dict[str, float | int | list]:
+def compute_binary_metrics(y_true, y_pred) -> Dict[str, Any]:
     prec = precision_score(y_true, y_pred, zero_division=0)
     rec = recall_score(y_true, y_pred, zero_division=0)
     f1 = f1_score(y_true, y_pred, zero_division=0)
@@ -27,6 +27,6 @@ def compute_binary_metrics(y_true, y_pred) -> Dict[str, float | int | list]:
     }
 
 
-def compute_anomaly_metrics(y_true, y_pred_anom) -> Dict[str, float | int | list]:
+def compute_anomaly_metrics(y_true, y_pred_anom) -> Dict[str, Any]:
     """Assumes y_pred_anom is 1 for predicted anomaly (subsidy) and 0 for normal."""
     return compute_binary_metrics(y_true, y_pred_anom)

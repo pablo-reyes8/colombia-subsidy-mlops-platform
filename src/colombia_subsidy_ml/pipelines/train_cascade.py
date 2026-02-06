@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import numpy as np
 from imblearn.over_sampling import SMOTE
@@ -63,7 +63,7 @@ def _tune_thresholds(
     return best["thr1"], best["thr2"], best
 
 
-def train_cascade(config_path: str | Path) -> Dict[str, object]:
+def train_cascade(config_path: Union[str, Path]) -> Dict[str, object]:
     config = load_yaml(config_path)
     df = read_dataset(config["dataset_path"])
     df = df.loc[:, ~df.columns.duplicated()]
