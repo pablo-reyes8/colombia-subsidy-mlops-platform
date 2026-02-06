@@ -1,5 +1,19 @@
 # Colombia Subsidy ML (GEIH)
 
+![Repo size](https://img.shields.io/github/repo-size/pablo-reyes8/colombia-subsidy-ml-prediction)
+![Last commit](https://img.shields.io/github/last-commit/pablo-reyes8/colombia-subsidy-ml-prediction)
+![Open issues](https://img.shields.io/github/issues/pablo-reyes8/colombia-subsidy-ml-prediction)
+![Contributors](https://img.shields.io/github/contributors/pablo-reyes8/colombia-subsidy-ml-prediction)
+![Forks](https://img.shields.io/github/forks/pablo-reyes8/colombia-subsidy-ml-prediction?style=social)
+![Stars](https://img.shields.io/github/stars/pablo-reyes8/colombia-subsidy-ml-prediction?style=social)
+
+
+
+
+
+
+
+
 A professional, reproducible MLOps-style project built on Colombia’s GEIH household survey to study whether subsidies reduce inequality and to predict potential subsidy candidates under extreme class imbalance. The original exploratory notebooks are preserved in `notebooks/`, while the production path is modularized into pipelines, configs, and CLI tools.
 
 ---
@@ -31,27 +45,55 @@ This repository delivers:
 ---
 
 ## 2. Descriptive Analysis (Selected Figures)
-Below are selected figures extracted from the original descriptive notebook. These are intentionally curated (not all plots) and laid out for readability.
 
-<table>
-  <tr>
-    <td>
-      <img src="docs/assets/analysis_plot_1.png" alt="Descriptive plot 1" width="420" />
-    </td>
-    <td>
-      <img src="docs/assets/analysis_plot_2.png" alt="Descriptive plot 2" width="420" />
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <img src="docs/assets/analysis_plot_3.png" alt="Descriptive plot 3" width="420" />
-    </td>
-    <td>
-      <img src="docs/assets/analysis_plot_4.png" alt="Descriptive plot 4" width="420" />
-    </td>
-  </tr>
-</table>
+Selected figures from the original descriptive notebook. These plots are intentionally curated (not exhaustive) and arranged for readability.
 
+<p align="center">
+  <img src="results\Boxplot Subs.png" alt="Descriptive plot 1" width="460" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/assets/analysis_plot_2.png" alt="Descriptive plot 2" width="460" />
+</p>
+<p align="center">
+  <sub><b>Figure 2.1.</b> Summary distribution & key diagnostics (left) and complementary descriptive patterns (right).</sub>
+</p>
+
+<br/>
+
+<p align="center">
+  <img src="docs/assets/analysis_plot_3.png" alt="Descriptive plot 3" width="460" />
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/assets/analysis_plot_4.png" alt="Descriptive plot 4" width="460" />
+</p>
+<p align="center">
+  <sub><b>Figure 2.2.</b> Additional distributional comparisons and subgroup contrasts.</sub>
+</p>
+
+<br/>
+
+<!-- Full-width highlight figure -->
+<p align="center">
+  <!-- Option A (recommended): rename the file to avoid spaces -->
+  <!-- <img src="results/geographical_distribution_of_subs.png" alt="Geographical distribution of subsidies" width="940" /> -->
+
+  <!-- Option B: keep the original filename (URL-encoded space) -->
+  <img src="results/Geographical%20distribution%20of%20subs.png" alt="Geographical distribution of subsidies" width="940" />
+</p>
+<p align="center">
+  <sub><b>Figure 2.3.</b> Geographical distribution of subsidies across departments (counts and total value).</sub>
+</p>
+
+<!-- Optional: collapse extra plots if you want a cleaner main README -->
+<!--
+<details>
+  <summary><b>More descriptive figures</b> (click to expand)</summary>
+  <br/>
+  <p align="center">
+    <img src="docs/assets/analysis_plot_5.png" width="460" />
+    &nbsp;&nbsp;&nbsp;
+    <img src="docs/assets/analysis_plot_6.png" width="460" />
+  </p>
+</details>
+-->
 ---
 
 ## 3. Project Structure
