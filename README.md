@@ -19,18 +19,18 @@ A professional, reproducible MLOps-style project built on Colombia’s GEIH hous
 ---
 
 ## Table of Contents
-1. Overview
-2. Descriptive Analysis (Selected Figures)
-3. Project Structure
-4. Data & Inputs
-5. Pipelines & CLI
-6. Modeling Approach
-7. Configuration
-8. Artifacts & Outputs
-9. Tests
-10. Docker
-11. Notebooks
-12. Roadmap
+1. [Overview](#1-overview)
+2. [Descriptive Analysis (Selected Figures)](#2-descriptive-analysis-selected-figures)
+3. [Project Structure](#3-project-structure)
+4. [Data & Inputs](#4-data--inputs)
+5. [Pipelines & CLI](#5-pipelines--cli)
+6. [Modeling Approach](#6-modeling-approach)
+7. [Configuration](#7-configuration)
+8. [Artifacts & Outputs](#8-artifacts--outputs)
+9. [Tests](#9-tests)
+10. [Docker](#10-docker)
+11. [Notebooks](#11-notebooks)
+12. [Roadmap](#12-roadmap)
 
 ---
 
@@ -49,7 +49,7 @@ This repository delivers:
 Selected figures from the original descriptive notebook. These plots are intentionally curated (not exhaustive) and arranged for readability.
 
 <p align="center">
-  <img src="results\Boxplot Subs.png" alt="Descriptive plot 1" width="460" />
+  <img src="results/Boxplot%20Subs.png" alt="Descriptive plot 1" width="460" />
   &nbsp;&nbsp;&nbsp;
   <img src="docs/assets/analysis_plot_2.png" alt="Descriptive plot 2" width="460" />
 </p>
@@ -70,30 +70,12 @@ Selected figures from the original descriptive notebook. These plots are intenti
 
 <br/>
 
-<!-- Full-width highlight figure -->
 <p align="center">
-  <!-- Option A (recommended): rename the file to avoid spaces -->
-  <!-- <img src="results/geographical_distribution_of_subs.png" alt="Geographical distribution of subsidies" width="940" /> -->
-
-  <!-- Option B: keep the original filename (URL-encoded space) -->
   <img src="results/Geographical%20distribution%20of%20subs.png" alt="Geographical distribution of subsidies" width="940" />
 </p>
 <p align="center">
   <sub><b>Figure 2.3.</b> Geographical distribution of subsidies across departments (counts and total value).</sub>
 </p>
-
-<!-- Optional: collapse extra plots if you want a cleaner main README -->
-<!--
-<details>
-  <summary><b>More descriptive figures</b> (click to expand)</summary>
-  <br/>
-  <p align="center">
-    <img src="docs/assets/analysis_plot_5.png" width="460" />
-    &nbsp;&nbsp;&nbsp;
-    <img src="docs/assets/analysis_plot_6.png" width="460" />
-  </p>
-</details>
--->
 ---
 
 ## 3. Project Structure
