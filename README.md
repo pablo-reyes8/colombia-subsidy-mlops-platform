@@ -48,27 +48,44 @@ This repository delivers:
 
 Selected figures from the original descriptive notebook. These plots are intentionally curated (not exhaustive) and arranged for readability.
 
-<p align="center">
-  <img src="results/Boxplot%20Subs.png" alt="Descriptive plot 1" width="460" />
-  &nbsp;&nbsp;&nbsp;
-  <img src="docs/assets/analysis_plot_2.png" alt="Descriptive plot 2" width="460" />
-</p>
-<p align="center">
-  <sub><b>Figure 2.1.</b> Summary distribution & key diagnostics (left) and complementary descriptive patterns (right).</sub>
-</p>
+
+<table align="center" style="border-collapse: collapse; width: 100%; max-width: 980px;">
+  <tr>
+    <td align="center" style="border: 1px solid #e5e7eb; padding: 12px; border-radius: 10px;">
+      <img src="results/Boxplot%20Subs.png" alt="Descriptive plot 1"
+           style="width: 100%; max-width: 460px; height: auto; display: block;" />
+    </td>
+    <td align="center" style="border: 1px solid #e5e7eb; padding: 12px; border-radius: 10px;">
+      <img src="docs/assets/analysis_plot_2.png" alt="Descriptive plot 2"
+           style="width: 100%; max-width: 460px; height: auto; display: block;" />
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center" style="padding: 10px 6px 16px 6px;">
+      <sub><b>Figure 2.1.</b> Summary distribution & key diagnostics (left) and complementary descriptive patterns (right).</sub>
+    </td>
+  </tr>
+</table>
 
 <br/>
 
-<p align="center">
-  <img src="docs/assets/analysis_plot_3.png" alt="Descriptive plot 3" width="460" />
-  &nbsp;&nbsp;&nbsp;
-  <img src="docs/assets/analysis_plot_4.png" alt="Descriptive plot 4" width="460" />
-</p>
-<p align="center">
-  <sub><b>Figure 2.2.</b> Additional distributional comparisons and subgroup contrasts.</sub>
-</p>
-
-<br/>
+<table align="center" style="border-collapse: collapse; width: 100%; max-width: 980px;">
+  <tr>
+    <td align="center" style="border: 1px solid #e5e7eb; padding: 12px; border-radius: 10px;">
+      <img src="docs/assets/analysis_plot_3.png" alt="Descriptive plot 3"
+           style="width: 100%; max-width: 460px; height: auto; display: block;" />
+    </td>
+    <td align="center" style="border: 1px solid #e5e7eb; padding: 12px; border-radius: 10px;">
+      <img src="docs/assets/analysis_plot_4.png" alt="Descriptive plot 4"
+           style="width: 100%; max-width: 460px; height: auto; display: block;" />
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center" style="padding: 10px 6px 16px 6px;">
+      <sub><b>Figure 2.2.</b> Additional distributional comparisons and subgroup contrasts.</sub>
+    </td>
+  </tr>
+</table>
 
 <p align="center">
   <img src="results/Geographical%20distribution%20of%20subs.png" alt="Geographical distribution of subsidies" width="940" />
