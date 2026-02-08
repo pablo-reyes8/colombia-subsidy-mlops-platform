@@ -20,6 +20,8 @@ feature_engineering:
 
 resampling:
   use_smote: true
+  method: smoteenn
+  sampling_strategy: auto
   random_state: 13
 
 stage1:
@@ -61,6 +63,7 @@ hyperparameter_search:
     recall_min: 0.65
     n_iter: 20
     random_state: 13
+    cv_folds: 3
     param_distributions:
       n_estimators: [100, 200, 300, 400]
       max_depth: [4, 6, 8, 10]

@@ -1,0 +1,74 @@
+services:
+  api:
+    build:
+      context: .
+      target: api
+    image: colombia-subsidy-ml:api
+    container_name: subsidy-api
+    environment:
+      SUBSIDY_ARTIFACTS_DIR: /app/artifacts/cascade
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./artifacts:/app/artifacts
+      - ./configs:/app/configs:ro
+    command: ["subsidy-ml", "serve-api", "--host", "0.0.0.0", "--port", "8000"]
+
+  train-cascade:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: mlops
+    image: colombia-subsidy-ml:mlops
+    container_name: subsidy-train-cascade
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./configs:/app/configs:ro
+    command: ["subsidy-ml", "train", "--config", "configs/train_cascade.yaml"]
+
+  train-anomaly:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: mlops
+    image: colombia-subsidy-ml:mlops
+    container_name: subsidy-train-anomaly
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./configs:/app/configs:ro
+    command: ["subsidy-ml", "train-anomaly", "--config", "configs/train_anomaly.yaml"]
+
+  drift-check:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: mlops
+    image: colombia-subsidy-ml:mlops
+    container_name: subsidy-drift-check
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./configs:/app/configs:ro
+    command: ["subsidy-ml", "drift-check", "--config", "configs/drift.yaml"]
+
+  mlflow:
+    profiles: ["tracking"]
+    image: python:3.11-slim
+    container_name: subsidy-mlflow
+    working_dir: /mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./artifacts/mlflow:/mlflow
+    command:
+      - /bin/sh
+      - -lc
+      - |
+        pip install --no-cache-dir "mlflow>=2.9" &&
+        mlflow server \
+          --host 0.0.0.0 \
+          --port 5000 \
+          --backend-store-uri sqlite:///mlflow.db \
+          --default-artifact-root /mlflow/artifacts

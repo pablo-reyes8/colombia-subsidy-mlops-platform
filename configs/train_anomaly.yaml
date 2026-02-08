@@ -33,6 +33,8 @@ search:
   random_state: 13
   objective_metric: f1
   recall_min: 0.10
+  tune_score_threshold: true
+  threshold_grid_size: 60
   param_distributions:
     n_estimators: [100, 200, 300]
     max_samples: [0.5, 0.75, 1.0, auto]

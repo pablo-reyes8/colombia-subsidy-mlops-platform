@@ -4,6 +4,8 @@ from pathlib import Path
 from typing import Dict, Tuple, Union
 
 import numpy as np
+from imblearn.combine import SMOTEENN
+from imblearn.over_sampling import BorderlineSMOTE
 from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split
 
@@ -36,6 +38,50 @@ def _split_indices(y, *, test_size: float, val_size: float, random_state: int, s
         stratify=strat2,
     )
     return train_idx, val_idx, test_idx
+
+
+def _resample_training_data(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    *,
+    config: Dict[str, object],
+    random_state: int,
+) -> Tuple[np.ndarray, np.ndarray, Dict[str, object]]:
+    if not bool(config.get("use_smote", False)):
+        return X_train, y_train, {"enabled": False, "method": "none"}
+
+    method = str(config.get("method", "smote")).lower()
+    sampling_strategy = config.get("sampling_strategy", "auto")
+    sampler_state = int(config.get("random_state", random_state))
+
+    if method == "smoteenn":
+        sampler = SMOTEENN(
+            sampling_strategy=sampling_strategy,
+            random_state=sampler_state,
+        )
+    elif method == "borderline_smote":
+        sampler = BorderlineSMOTE(
+            sampling_strategy=sampling_strategy,
+            random_state=sampler_state,
+            kind=str(config.get("borderline_kind", "borderline-1")),
+        )
+    else:
+        sampler = SMOTE(
+            sampling_strategy=sampling_strategy,
+            random_state=sampler_state,
+        )
+        method = "smote"
+
+    X_res, y_res = sampler.fit_resample(X_train, y_train)
+    summary = {
+        "enabled": True,
+        "method": method,
+        "sampling_strategy": sampling_strategy,
+        "random_state": sampler_state,
+        "rows_before": int(len(y_train)),
+        "rows_after": int(len(y_res)),
+    }
+    return X_res, y_res, summary
 
 
 def _tune_thresholds(
@@ -141,9 +187,12 @@ def train_cascade(config_path: Union[str, Path]) -> Dict[str, object]:
     X_test_pp = to_dense(feature_pipeline.transform(X_test))
 
     res_cfg = config.get("resampling", {})
-    if bool(res_cfg.get("use_smote", False)):
-        smote = SMOTE(random_state=int(res_cfg.get("random_state", random_state)))
-        X_train_pp, y_train = smote.fit_resample(X_train_pp, y_train)
+    X_train_pp, y_train, resampling_summary = _resample_training_data(
+        X_train_pp,
+        y_train,
+        config=res_cfg,
+        random_state=random_state,
+    )
 
     y_train_np = np.asarray(y_train)
     y_val_np = y_val.values
@@ -179,6 +228,7 @@ def train_cascade(config_path: Union[str, Path]) -> Dict[str, object]:
                 recall_min=float(stage1_search_cfg.get("recall_min", 0.0)),
                 n_iter=int(stage1_search_cfg.get("n_iter", n_iter)),
                 random_state=int(stage1_search_cfg.get("random_state", search_random_state)),
+                cv_folds=int(stage1_search_cfg.get("cv_folds", 1)),
             )
             selected_stage1_params = stage1_tuned.params
             stage1_search_metrics = stage1_tuned.metrics
@@ -272,6 +322,7 @@ def train_cascade(config_path: Union[str, Path]) -> Dict[str, object]:
             "test": compute_binary_metrics(y_test_np, y_test_pred, y_proba=y_test_proba),
             "selected_stage1_params": selected_stage1_params,
             "selected_stage2_params": selected_stage2_params,
+            "resampling": resampling_summary,
         }
         if tuning_summary:
             metrics["threshold_tuning"] = tuning_summary
@@ -290,6 +341,7 @@ def train_cascade(config_path: Union[str, Path]) -> Dict[str, object]:
             "selected_stage1_params": selected_stage1_params,
             "selected_stage2_params": selected_stage2_params,
             "feature_engineering": feature_cfg,
+            "resampling": resampling_summary,
             "model_version": str(config.get("model_version", "v1")),
         }
 
@@ -311,7 +363,7 @@ def train_cascade(config_path: Union[str, Path]) -> Dict[str, object]:
                 "config_path": str(config_path),
                 "stage1.model": stage1_cfg["model"],
                 "stage2.model": stage2_cfg["model"],
-                "resampling.use_smote": bool(res_cfg.get("use_smote", False)),
+                "resampling": resampling_summary,
                 "hyperparameter_search.enabled": search_enabled,
                 "selected_stage1_params": selected_stage1_params,
                 "selected_stage2_params": selected_stage2_params,

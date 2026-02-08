@@ -36,10 +36,12 @@ def _split_indices(y, *, test_size: float, val_size: float, random_state: int, s
     return train_idx, val_idx, test_idx
 
 
-def _anomaly_outputs(model, X: np.ndarray) -> Tuple[np.ndarray, Optional[np.ndarray]]:
-    raw_pred = model.predict(X)
-    y_pred_anomaly = (raw_pred == -1).astype(int)
-
+def _anomaly_outputs(
+    model,
+    X: np.ndarray,
+    *,
+    score_threshold: Optional[float] = None,
+) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     y_score = None
     if hasattr(model, "decision_function"):
         try:
@@ -48,6 +50,12 @@ def _anomaly_outputs(model, X: np.ndarray) -> Tuple[np.ndarray, Optional[np.ndar
         except Exception:
             y_score = None
 
+    if score_threshold is not None and y_score is not None:
+        y_pred_anomaly = (y_score >= score_threshold).astype(int)
+        return y_pred_anomaly, y_score
+
+    raw_pred = model.predict(X)
+    y_pred_anomaly = (raw_pred == -1).astype(int)
     return y_pred_anomaly, y_score
 
 
@@ -67,6 +75,39 @@ def _score_tuple(metrics: Dict[str, float], objective_metric: str, recall_min: f
     return f1, recall, precision
 
 
+def _find_best_score_threshold(
+    *,
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    objective_metric: str,
+    recall_min: float,
+    grid_size: int,
+) -> Tuple[float, Dict[str, float]]:
+    if y_score.size == 0:
+        raise ValueError("y_score cannot be empty for threshold tuning")
+
+    quantiles = np.linspace(0.01, 0.99, max(10, int(grid_size)))
+    thresholds = np.unique(np.quantile(y_score, quantiles))
+
+    best_threshold = float(np.median(y_score))
+    best_metrics = compute_anomaly_metrics(y_true, (y_score >= best_threshold).astype(int), y_score=y_score)
+    best_score = _score_tuple(best_metrics, objective_metric, recall_min)
+
+    for threshold in thresholds:
+        y_pred = (y_score >= threshold).astype(int)
+        metrics = compute_anomaly_metrics(y_true, y_pred, y_score=y_score)
+        score = _score_tuple(metrics, objective_metric, recall_min)
+        if score is None:
+            continue
+
+        if best_score is None or score > best_score:
+            best_score = score
+            best_threshold = float(threshold)
+            best_metrics = metrics
+
+    return best_threshold, best_metrics
+
+
 def _search_anomaly_params(
     *,
     model_type: str,
@@ -79,6 +120,8 @@ def _search_anomaly_params(
     X_train_norm: np.ndarray,
     X_val: np.ndarray,
     y_val: np.ndarray,
+    tune_score_threshold: bool,
+    threshold_grid_size: int,
 ):
     candidates = [dict(base_params)]
     if param_distributions:
@@ -99,7 +142,17 @@ def _search_anomaly_params(
         model.fit(X_train_norm)
 
         y_val_pred, y_val_score = _anomaly_outputs(model, X_val)
+        score_threshold = None
         metrics = compute_anomaly_metrics(y_val, y_val_pred, y_score=y_val_score)
+
+        if tune_score_threshold and y_val_score is not None:
+            score_threshold, metrics = _find_best_score_threshold(
+                y_true=y_val,
+                y_score=y_val_score,
+                objective_metric=objective_metric,
+                recall_min=recall_min,
+                grid_size=threshold_grid_size,
+            )
 
         score = _score_tuple(metrics, objective_metric, recall_min)
         if score is None:
@@ -110,15 +163,29 @@ def _search_anomaly_params(
             best = {
                 "params": params,
                 "metrics": metrics,
+                "score_threshold": score_threshold,
             }
 
     if best is None:
         model = make_anomaly_model(model_type, base_params)
         model.fit(X_train_norm)
         y_val_pred, y_val_score = _anomaly_outputs(model, X_val)
+        score_threshold = None
+        metrics = compute_anomaly_metrics(y_val, y_val_pred, y_score=y_val_score)
+
+        if tune_score_threshold and y_val_score is not None:
+            score_threshold, metrics = _find_best_score_threshold(
+                y_true=y_val,
+                y_score=y_val_score,
+                objective_metric=objective_metric,
+                recall_min=recall_min,
+                grid_size=threshold_grid_size,
+            )
+
         best = {
             "params": dict(base_params),
-            "metrics": compute_anomaly_metrics(y_val, y_val_pred, y_score=y_val_score),
+            "metrics": metrics,
+            "score_threshold": score_threshold,
         }
 
     return best
@@ -184,15 +251,19 @@ def train_anomaly(config_path: Union[str, Path]):
                 X_train_norm=X_train_norm,
                 X_val=X_val_pp,
                 y_val=y_val.values,
+                tune_score_threshold=bool(search_cfg.get("tune_score_threshold", True)),
+                threshold_grid_size=int(search_cfg.get("threshold_grid_size", 40)),
             )
             selected_params = dict(best["params"])
             val_metrics = best["metrics"]
+            selected_score_threshold = best.get("score_threshold")
         else:
             model = make_anomaly_model(model_type, base_params)
             model.fit(X_train_norm)
             y_val_pred, y_val_score = _anomaly_outputs(model, X_val_pp)
             selected_params = dict(base_params)
             val_metrics = compute_anomaly_metrics(y_val.values, y_val_pred, y_score=y_val_score)
+            selected_score_threshold = None
 
         # Refit with train+val (normal class only) before final test evaluation.
         X_trainval_pp = np.vstack([X_train_pp, X_val_pp])
@@ -203,13 +274,18 @@ def train_anomaly(config_path: Union[str, Path]):
         model = make_anomaly_model(model_type, selected_params)
         model.fit(X_trainval_norm)
 
-        y_test_pred, y_test_score = _anomaly_outputs(model, X_test_pp)
+        y_test_pred, y_test_score = _anomaly_outputs(
+            model,
+            X_test_pp,
+            score_threshold=selected_score_threshold,
+        )
         test_metrics = compute_anomaly_metrics(y_test.values, y_test_pred, y_score=y_test_score)
 
         metrics = {
             "validation": val_metrics,
             "test": test_metrics,
             "selected_params": selected_params,
+            "selected_score_threshold": selected_score_threshold,
         }
 
         artifacts_cfg = config.get("artifacts", {})
@@ -226,6 +302,7 @@ def train_anomaly(config_path: Union[str, Path]):
             "config_path": str(config_path),
             "model_type": model_type,
             "selected_params": selected_params,
+            "selected_score_threshold": selected_score_threshold,
             "feature_engineering": feature_cfg,
             "model_version": str(config.get("model_version", "v1")),
         }
@@ -240,6 +317,7 @@ def train_anomaly(config_path: Union[str, Path]):
                 "model_type": model_type,
                 "search.enabled": search_enabled,
                 "selected_params": selected_params,
+                "selected_score_threshold": selected_score_threshold,
             },
         )
         log_metrics(mlflow_enabled, val_metrics, prefix="val_")
