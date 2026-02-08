@@ -336,4 +336,4 @@ Original notebooks are kept for traceability:
 - Add canary/champion-challenger deployment policy.
 
 ## License
-Apache License 2.0
+Apache License 2.0.
