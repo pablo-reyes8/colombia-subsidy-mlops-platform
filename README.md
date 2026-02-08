@@ -1,23 +1,75 @@
 # Colombia Subsidy ML (GEIH)
 
-MLOps-ready project for subsidy prediction with severe class imbalance. The exploratory notebooks are preserved in `notebooks/`, and the production implementation is in `src/` with configurable pipelines, artifact versioning, API serving, experiment tracking, and drift monitoring.
+![Repo size](https://img.shields.io/github/repo-size/pablo-reyes8/colombia-subsidy-ml-prediction)
+![Last commit](https://img.shields.io/github/last-commit/pablo-reyes8/colombia-subsidy-ml-prediction)
+![Open issues](https://img.shields.io/github/issues/pablo-reyes8/colombia-subsidy-ml-prediction)
+![Contributors](https://img.shields.io/github/contributors/pablo-reyes8/colombia-subsidy-ml-prediction)
+![Forks](https://img.shields.io/github/forks/pablo-reyes8/colombia-subsidy-ml-prediction?style=social)
+![Stars](https://img.shields.io/github/stars/pablo-reyes8/colombia-subsidy-ml-prediction?style=social)
 
-## Main Capabilities
-- Modular data pipeline to build `Base_Modelo_Subsidios.csv`.
-- Two-stage cascade model (XGBoost + Random Forest) with:
-  - SMOTE support
-  - polynomial feature expansion
-  - optional PCA
-  - hyperparameter search by stage
-  - threshold tuning under recall constraints
-- Anomaly baseline (Isolation Forest / One-Class SVM) with tunable search.
-- Optional MLflow experiment tracking.
-- Evidently drift reports (HTML + JSON summary).
-- FastAPI inference service with documented schemas.
-- Reproducibility via DVC (`dvc.yaml`) and Kubeflow pipeline compilation.
 
-## Project Structure
-```text
+
+
+
+
+
+
+A professional, reproducible MLOps-style project built on Colombia’s GEIH household survey to study whether subsidies reduce inequality and to predict potential subsidy candidates under extreme class imbalance. The original exploratory notebooks are preserved in `notebooks/`, while the production path is modularized into pipelines, configs, and CLI tools.
+
+---
+
+## Table of Contents
+1. Overview
+2. Descriptive Analysis (Selected Figures)
+3. Project Structure
+4. Data & Inputs
+5. Pipelines & CLI
+6. Modeling Approach
+7. Configuration
+8. Artifacts & Outputs
+9. Tests
+10. Docker
+11. Notebooks
+12. Roadmap
+
+---
+
+## 1. Overview
+This repository delivers:
+- A dataset build pipeline that consolidates raw GEIH tables into a modeling-ready file.
+- Feature engineering and preprocessing in a reusable package.
+- A two-stage cascade model optimized for recall/precision tradeoffs on the minority class.
+- Anomaly detection baselines (Isolation Forest / One-Class SVM) for high-precision targeting.
+- Config-driven training, evaluation, and inference from the command line.
+
+---
+
+## 2. Descriptive Analysis (Selected Figures)
+Below are selected figures extracted from the original descriptive notebook. These are intentionally curated (not all plots) and laid out for readability.
+
+<table>
+  <tr>
+    <td>
+      <img src="docs/assets/analysis_plot_1.png" alt="Descriptive plot 1" width="420" />
+    </td>
+    <td>
+      <img src="docs/assets/analysis_plot_2.png" alt="Descriptive plot 2" width="420" />
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <img src="docs/assets/analysis_plot_3.png" alt="Descriptive plot 3" width="420" />
+    </td>
+    <td>
+      <img src="docs/assets/analysis_plot_4.png" alt="Descriptive plot 4" width="420" />
+    </td>
+  </tr>
+</table>
+
+---
+
+## 3. Project Structure
+```
 .
 ├─ artifacts/
 ├─ configs/
