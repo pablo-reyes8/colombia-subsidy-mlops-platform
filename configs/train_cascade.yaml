@@ -1,5 +1,7 @@
 dataset_path: data/processed/Base_Modelo_Subsidios.csv
 target_col: Subsidio
+model_version: v2
+run_name: cascade_train_v2
 
 split:
   test_size: 0.10
@@ -7,9 +9,14 @@ split:
   random_state: 13
   stratify: true
 
-preprocessing:
+feature_engineering:
   scale_numeric: minmax
-  onehot: true
+  numeric_imputer_strategy: median
+  categorical_imputer_strategy: most_frequent
+  polynomial_degree: 2
+  polynomial_include_bias: false
+  pca_components: 33
+  pca_random_state: 13
 
 resampling:
   use_smote: true
@@ -40,12 +47,59 @@ stage2:
     min_samples_split: 4
     min_samples_leaf: 2
     max_features: sqrt
+    class_weight: balanced
     random_state: 13
     n_jobs: -1
 
-artifacts:
-  dir: artifacts/cascade
-  save_preprocessor: true
+hyperparameter_search:
+  enabled: true
+  n_iter: 20
+  random_state: 13
+  stage1:
+    enabled: true
+    objective_metric: recall
+    recall_min: 0.65
+    n_iter: 20
+    random_state: 13
+    param_distributions:
+      n_estimators: [100, 200, 300, 400]
+      max_depth: [4, 6, 8, 10]
+      learning_rate: [0.01, 0.05, 0.1]
+      subsample: [0.7, 0.8, 1.0]
+      colsample_bytree: [0.6, 0.8, 1.0]
+      gamma: [0.0, 0.1, 0.2, 0.5]
+      reg_alpha: [0.0, 0.1, 0.5]
+      reg_lambda: [1.0, 1.5, 2.0]
+  stage2:
+    enabled: true
+    objective_metric: precision
+    recall_min: 0.65
+    n_iter: 20
+    random_state: 13
+    param_distributions:
+      n_estimators: [200, 300, 400, 500]
+      max_depth: [6, 8, 10, 12]
+      min_samples_split: [2, 4, 6, 8]
+      min_samples_leaf: [1, 2, 3, 4]
+      max_features: [sqrt, log2, null]
+      class_weight: [balanced, null]
+
+tune_thresholds: true
+threshold_search:
+  min: 0.10
+  max: 0.90
+  steps: 25
 
 metrics:
   recall_min: 0.70
+
+artifacts:
+  dir: artifacts/cascade
+
+mlflow:
+  enabled: false
+  experiment_name: colombia-subsidy-cascade
+  tracking_uri: null
+  tags:
+    project: colombia-subsidy-ml
+    pipeline: cascade

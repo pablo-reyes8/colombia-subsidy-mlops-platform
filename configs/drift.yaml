@@ -1,0 +1,22 @@
+reference_dataset_path: data/processed/Base_Modelo_Subsidios.csv
+current_dataset_path: artifacts/predictions.csv
+target_col: Subsidio
+exclude_columns:
+  - pred_subsidio
+  - proba_subsidio
+include_data_quality: true
+run_name: drift_check_v1
+
+output:
+  dir: artifacts/drift
+  html_name: drift_report.html
+  json_name: drift_report.json
+  summary_name: drift_summary.json
+
+mlflow:
+  enabled: false
+  experiment_name: colombia-subsidy-drift
+  tracking_uri: null
+  tags:
+    project: colombia-subsidy-ml
+    pipeline: drift

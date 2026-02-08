@@ -2,17 +2,126 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Union
+from typing import Dict, List, Optional, Tuple, Union
 
+import joblib
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import ParameterSampler, train_test_split
 
 from colombia_subsidy_ml.config import load_yaml
 from colombia_subsidy_ml.data.io import read_dataset
-from colombia_subsidy_ml.features.preprocess import build_preprocessor, prepare_xy, split_features
+from colombia_subsidy_ml.features.preprocess import build_feature_pipeline, prepare_xy, split_features
 from colombia_subsidy_ml.models.factory import make_anomaly_model
+from colombia_subsidy_ml.tracking.mlflow_utils import log_artifacts, log_metrics, log_params, start_mlflow_run
 from colombia_subsidy_ml.utils.arrays import to_dense
 from colombia_subsidy_ml.utils.metrics import compute_anomaly_metrics
+
+
+def _split_indices(y, *, test_size: float, val_size: float, random_state: int, stratify: bool):
+    idx = np.arange(len(y))
+    strat = y if stratify else None
+    train_val_idx, test_idx = train_test_split(
+        idx,
+        test_size=test_size,
+        random_state=random_state,
+        stratify=strat,
+    )
+    strat2 = y[train_val_idx] if stratify else None
+    train_idx, val_idx = train_test_split(
+        train_val_idx,
+        test_size=val_size,
+        random_state=random_state,
+        stratify=strat2,
+    )
+    return train_idx, val_idx, test_idx
+
+
+def _anomaly_outputs(model, X: np.ndarray) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    raw_pred = model.predict(X)
+    y_pred_anomaly = (raw_pred == -1).astype(int)
+
+    y_score = None
+    if hasattr(model, "decision_function"):
+        try:
+            # Higher score should represent "more anomalous" for metric curves.
+            y_score = -np.asarray(model.decision_function(X))
+        except Exception:
+            y_score = None
+
+    return y_pred_anomaly, y_score
+
+
+def _score_tuple(metrics: Dict[str, float], objective_metric: str, recall_min: float):
+    recall = float(metrics.get("recall", 0.0))
+    precision = float(metrics.get("precision", 0.0))
+    f1 = float(metrics.get("f1", 0.0))
+
+    if recall < recall_min:
+        return None
+
+    objective_metric = objective_metric.lower()
+    if objective_metric == "precision":
+        return precision, recall, f1
+    if objective_metric == "recall":
+        return recall, precision, f1
+    return f1, recall, precision
+
+
+def _search_anomaly_params(
+    *,
+    model_type: str,
+    base_params: Dict[str, object],
+    param_distributions: Optional[Dict[str, List[object]]],
+    n_iter: int,
+    random_state: int,
+    objective_metric: str,
+    recall_min: float,
+    X_train_norm: np.ndarray,
+    X_val: np.ndarray,
+    y_val: np.ndarray,
+):
+    candidates = [dict(base_params)]
+    if param_distributions:
+        sampled = list(
+            ParameterSampler(
+                param_distributions=param_distributions,
+                n_iter=max(1, n_iter),
+                random_state=random_state,
+            )
+        )
+        candidates = [{**base_params, **params} for params in sampled]
+
+    best = None
+    best_score = None
+
+    for params in candidates:
+        model = make_anomaly_model(model_type, params)
+        model.fit(X_train_norm)
+
+        y_val_pred, y_val_score = _anomaly_outputs(model, X_val)
+        metrics = compute_anomaly_metrics(y_val, y_val_pred, y_score=y_val_score)
+
+        score = _score_tuple(metrics, objective_metric, recall_min)
+        if score is None:
+            continue
+
+        if best_score is None or score > best_score:
+            best_score = score
+            best = {
+                "params": params,
+                "metrics": metrics,
+            }
+
+    if best is None:
+        model = make_anomaly_model(model_type, base_params)
+        model.fit(X_train_norm)
+        y_val_pred, y_val_score = _anomaly_outputs(model, X_val)
+        best = {
+            "params": dict(base_params),
+            "metrics": compute_anomaly_metrics(y_val, y_val_pred, y_score=y_val_score),
+        }
+
+    return best
 
 
 def train_anomaly(config_path: Union[str, Path]):
@@ -24,51 +133,118 @@ def train_anomaly(config_path: Union[str, Path]):
     X, y = prepare_xy(df, target_col)
 
     split_cfg = config.get("split", {})
-    test_size = split_cfg.get("test_size", 0.2)
-    random_state = split_cfg.get("random_state", 13)
+    test_size = float(split_cfg.get("test_size", 0.2))
+    val_size = float(split_cfg.get("val_size", 0.2))
+    random_state = int(split_cfg.get("random_state", 13))
+    stratify = bool(split_cfg.get("stratify", True))
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=y
+    train_idx, val_idx, test_idx = _split_indices(
+        y.values,
+        test_size=test_size,
+        val_size=val_size,
+        random_state=random_state,
+        stratify=stratify,
     )
 
+    X_train, y_train = X.iloc[train_idx], y.iloc[train_idx]
+    X_val, y_val = X.iloc[val_idx], y.iloc[val_idx]
+    X_test, y_test = X.iloc[test_idx], y.iloc[test_idx]
+
     spec = split_features(X_train)
-    preproc_cfg = config.get("preprocessing", {})
-    preprocessor = build_preprocessor(spec, scale_numeric=preproc_cfg.get("scale_numeric", "minmax"))
+    feature_cfg = config.get("feature_engineering") or config.get("preprocessing", {})
+    preprocessor = build_feature_pipeline(spec, config=feature_cfg)
 
     X_train_pp = to_dense(preprocessor.fit_transform(X_train))
+    X_val_pp = to_dense(preprocessor.transform(X_val))
     X_test_pp = to_dense(preprocessor.transform(X_test))
 
-    # Train only on normal class (0)
-    normal_mask = (y_train.values == 0)
-    X_train_norm = X_train_pp[normal_mask]
-
     model_cfg = config["model"]
-    model = make_anomaly_model(model_cfg["type"], model_cfg.get("params", {}))
-    model.fit(X_train_norm)
+    model_type = str(model_cfg["type"])
+    base_params = dict(model_cfg.get("params", {}))
 
-    # Predict anomalies: -1 => anomaly => subsidy class (1)
-    y_pred = model.predict(X_test_pp)
-    y_pred_anom = (y_pred == -1).astype(int)
+    normal_mask_train = (y_train.values == 0)
+    X_train_norm = X_train_pp[normal_mask_train]
 
-    metrics = compute_anomaly_metrics(y_test.values, y_pred_anom)
+    search_cfg = config.get("search", {})
+    search_enabled = bool(search_cfg.get("enabled", False))
 
-    artifacts_cfg = config.get("artifacts", {})
-    artifacts_dir = Path(artifacts_cfg.get("dir", "artifacts/anomaly"))
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    mlflow_cfg = config.get("mlflow", {})
+    run_name = str(config.get("run_name", "anomaly_train"))
 
-    import joblib
+    with start_mlflow_run(mlflow_cfg, run_name=run_name) as mlflow_enabled:
+        if search_enabled:
+            best = _search_anomaly_params(
+                model_type=model_type,
+                base_params=base_params,
+                param_distributions=search_cfg.get("param_distributions"),
+                n_iter=int(search_cfg.get("n_iter", 20)),
+                random_state=int(search_cfg.get("random_state", random_state)),
+                objective_metric=str(search_cfg.get("objective_metric", "f1")),
+                recall_min=float(search_cfg.get("recall_min", 0.0)),
+                X_train_norm=X_train_norm,
+                X_val=X_val_pp,
+                y_val=y_val.values,
+            )
+            selected_params = dict(best["params"])
+            val_metrics = best["metrics"]
+        else:
+            model = make_anomaly_model(model_type, base_params)
+            model.fit(X_train_norm)
+            y_val_pred, y_val_score = _anomaly_outputs(model, X_val_pp)
+            selected_params = dict(base_params)
+            val_metrics = compute_anomaly_metrics(y_val.values, y_val_pred, y_score=y_val_score)
 
-    joblib.dump(preprocessor, artifacts_dir / "preprocessor.joblib")
-    joblib.dump(model, artifacts_dir / "model.joblib")
+        # Refit with train+val (normal class only) before final test evaluation.
+        X_trainval_pp = np.vstack([X_train_pp, X_val_pp])
+        y_trainval = np.concatenate([y_train.values, y_val.values])
+        normal_mask_trainval = (y_trainval == 0)
+        X_trainval_norm = X_trainval_pp[normal_mask_trainval]
 
-    metadata = {
-        "target_col": target_col,
-        "feature_columns": list(X.columns),
-        "config_path": str(config_path),
-        "model_type": model_cfg["type"],
-    }
-    (artifacts_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-    (artifacts_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+        model = make_anomaly_model(model_type, selected_params)
+        model.fit(X_trainval_norm)
+
+        y_test_pred, y_test_score = _anomaly_outputs(model, X_test_pp)
+        test_metrics = compute_anomaly_metrics(y_test.values, y_test_pred, y_score=y_test_score)
+
+        metrics = {
+            "validation": val_metrics,
+            "test": test_metrics,
+            "selected_params": selected_params,
+        }
+
+        artifacts_cfg = config.get("artifacts", {})
+        artifacts_dir = Path(artifacts_cfg.get("dir", "artifacts/anomaly"))
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+        joblib.dump(preprocessor, artifacts_dir / "preprocessor.joblib")
+        joblib.dump(model, artifacts_dir / "model.joblib")
+        np.savez(artifacts_dir / "split_indices.npz", train_idx=train_idx, val_idx=val_idx, test_idx=test_idx)
+
+        metadata = {
+            "target_col": target_col,
+            "feature_columns": list(X.columns),
+            "config_path": str(config_path),
+            "model_type": model_type,
+            "selected_params": selected_params,
+            "feature_engineering": feature_cfg,
+            "model_version": str(config.get("model_version", "v1")),
+        }
+        (artifacts_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+        (artifacts_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+
+        log_params(
+            mlflow_enabled,
+            {
+                "pipeline": "anomaly",
+                "config_path": str(config_path),
+                "model_type": model_type,
+                "search.enabled": search_enabled,
+                "selected_params": selected_params,
+            },
+        )
+        log_metrics(mlflow_enabled, val_metrics, prefix="val_")
+        log_metrics(mlflow_enabled, test_metrics, prefix="test_")
+        log_artifacts(mlflow_enabled, artifacts_dir, artifact_path="anomaly_artifacts")
 
     return {
         "artifacts_dir": artifacts_dir,

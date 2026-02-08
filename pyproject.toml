@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "colombia-subsidy-ml"
-version = "0.1.0"
-description = "GEIH subsidy analysis and ML pipelines"
+version = "0.2.0"
+description = "GEIH subsidy analysis and MLOps pipelines"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "Apache-2.0"}
@@ -26,6 +26,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov"]
+mlops = [
+  "mlflow>=2.9",
+  "evidently>=0.5",
+  "fastapi>=0.110",
+  "uvicorn>=0.27",
+  "pydantic>=2.5",
+  "kfp>=2.8",
+  "dvc>=3.0"
+]
 
 [project.scripts]
 subsidy-ml = "colombia_subsidy_ml.cli:main"

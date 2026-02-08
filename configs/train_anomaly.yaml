@@ -1,16 +1,25 @@
 dataset_path: data/processed/Base_Modelo_Subsidios.csv
 target_col: Subsidio
+model_version: v2
+run_name: anomaly_train_v2
 
 split:
   test_size: 0.20
+  val_size: 0.20
   random_state: 13
+  stratify: true
 
-preprocessing:
+feature_engineering:
   scale_numeric: minmax
-  onehot: true
+  numeric_imputer_strategy: median
+  categorical_imputer_strategy: most_frequent
+  polynomial_degree: 2
+  polynomial_include_bias: false
+  pca_components: 33
+  pca_random_state: 13
 
 model:
-  type: isolation_forest   # isolation_forest or one_class_svm
+  type: isolation_forest
   params:
     n_estimators: 200
     max_samples: auto
@@ -18,5 +27,24 @@ model:
     random_state: 13
     n_jobs: -1
 
+search:
+  enabled: true
+  n_iter: 20
+  random_state: 13
+  objective_metric: f1
+  recall_min: 0.10
+  param_distributions:
+    n_estimators: [100, 200, 300]
+    max_samples: [0.5, 0.75, 1.0, auto]
+    contamination: [0.01, 0.03, 0.05, 0.1, 0.2]
+
 artifacts:
   dir: artifacts/anomaly
+
+mlflow:
+  enabled: false
+  experiment_name: colombia-subsidy-anomaly
+  tracking_uri: null
+  tags:
+    project: colombia-subsidy-ml
+    pipeline: anomaly

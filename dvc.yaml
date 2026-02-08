@@ -1,0 +1,63 @@
+stages:
+  build_dataset:
+    cmd: python3 -m colombia_subsidy_ml build-dataset --config configs/dataset.yaml
+    deps:
+      - configs/dataset.yaml
+      - src/colombia_subsidy_ml/data/build.py
+      - src/colombia_subsidy_ml/pipelines/dataset.py
+      - src/colombia_subsidy_ml/data/io.py
+    outs:
+      - data/processed/Base_Modelo_Subsidios.csv
+
+  train_cascade:
+    cmd: python3 -m colombia_subsidy_ml train --config configs/train_cascade.yaml
+    deps:
+      - configs/train_cascade.yaml
+      - data/processed/Base_Modelo_Subsidios.csv
+      - src/colombia_subsidy_ml/pipelines/train_cascade.py
+      - src/colombia_subsidy_ml/features/preprocess.py
+      - src/colombia_subsidy_ml/models/cascade.py
+      - src/colombia_subsidy_ml/models/factory.py
+      - src/colombia_subsidy_ml/models/tuning.py
+    outs:
+      - artifacts/cascade
+    metrics:
+      - artifacts/cascade/metrics.json:
+          cache: false
+
+  train_anomaly:
+    cmd: python3 -m colombia_subsidy_ml train-anomaly --config configs/train_anomaly.yaml
+    deps:
+      - configs/train_anomaly.yaml
+      - data/processed/Base_Modelo_Subsidios.csv
+      - src/colombia_subsidy_ml/pipelines/train_anomaly.py
+      - src/colombia_subsidy_ml/features/preprocess.py
+      - src/colombia_subsidy_ml/models/factory.py
+    outs:
+      - artifacts/anomaly
+    metrics:
+      - artifacts/anomaly/metrics.json:
+          cache: false
+
+  evaluate_cascade:
+    cmd: python3 -m colombia_subsidy_ml evaluate --config configs/train_cascade.yaml
+    deps:
+      - configs/train_cascade.yaml
+      - artifacts/cascade
+      - src/colombia_subsidy_ml/pipelines/evaluate.py
+    metrics:
+      - artifacts/cascade/metrics_eval.json:
+          cache: false
+
+  drift_check:
+    cmd: python3 -m colombia_subsidy_ml drift-check --config configs/drift.yaml
+    deps:
+      - configs/drift.yaml
+      - src/colombia_subsidy_ml/pipelines/drift.py
+      - data/processed/Base_Modelo_Subsidios.csv
+      - artifacts/predictions.csv
+    outs:
+      - artifacts/drift
+    metrics:
+      - artifacts/drift/drift_summary.json:
+          cache: false
