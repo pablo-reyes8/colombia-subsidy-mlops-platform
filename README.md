@@ -11,7 +11,7 @@
 
 
 
-A professional, reproducible MLOps-style project built on Colombia’s GEIH household survey to study whether subsidies reduce inequality and to predict potential subsidy candidates under extreme class imbalance. The original exploratory notebooks are preserved in `notebooks/`, while the production path is modularized into pipelines, configs, and CLI tools.
+A professional, reproducible MLOps-style project built on Colombia’s GEIH household survey to study whether subsidies reduce inequality and to predict potential subsidy candidates under extreme class imbalance. The original notebooks pipelines are preserved in `notebooks/`, while the production path is modularized into pipelines, configs, and CLI tools.
 
 ---
 
