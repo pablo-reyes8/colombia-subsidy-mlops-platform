@@ -1,4 +1,4 @@
-# Colombia Subsidy ML (GEIH)
+# Colombia Subsidy MLOps Prediction
 
 ![Repo size](https://img.shields.io/github/repo-size/pablo-reyes8/colombia-subsidy-ml-prediction)
 ![Last commit](https://img.shields.io/github/last-commit/pablo-reyes8/colombia-subsidy-ml-prediction)
