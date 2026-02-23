@@ -1,4 +1,4 @@
-# Colombia Subsidy ML (GEIH)
+# Colombia Subsidy MLOps Prediction
 
 ![Repo size](https://img.shields.io/github/repo-size/pablo-reyes8/colombia-subsidy-ml-prediction)
 ![Last commit](https://img.shields.io/github/last-commit/pablo-reyes8/colombia-subsidy-ml-prediction)
@@ -11,7 +11,7 @@
 
 
 
-A professional, reproducible MLOps-style project built on Colombia’s GEIH household survey to study whether subsidies reduce inequality and to predict potential subsidy candidates under extreme class imbalance. The original exploratory notebooks are preserved in `notebooks/`, while the production path is modularized into pipelines, configs, and CLI tools.
+A professional, reproducible MLOps-style project built on Colombia’s GEIH household survey to study whether subsidies reduce inequality and to predict potential subsidy candidates under extreme class imbalance. The original notebooks pipelines are preserved in `notebooks/`, while the production path is modularized into pipelines, configs, and CLI tools.
 
 ---
 
@@ -336,4 +336,5 @@ Original notebooks are kept for traceability:
 - Add canary/champion-challenger deployment policy.
 
 ## License
-Apache License 2.0
+Apache License 2.0. Feel free to use the code and all the pipelines 
+
