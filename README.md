@@ -335,6 +335,71 @@ Original notebooks are kept for traceability:
 - Add scheduled drift checks and alerting integration.
 - Add canary/champion-challenger deployment policy.
 
+---
+
+## 19. MLOps Enhancements (Component Docker + Drift Retraining + Airflow)
+This repository now includes an extended MLOps orchestration layer on top of the original workflow, without changing the analysis/notebook showcase content.
+
+### A. Component-based Docker images (pipeline by stage)
+The Docker strategy now supports dedicated images/targets for each pipeline step:
+- `dataset`
+- `train-cascade`
+- `train-anomaly`
+- `evaluate`
+- `drift-check`
+- `compile-kubeflow`
+- `api`
+- `airflow`
+
+Examples:
+```bash
+docker build --target dataset -t colombia-subsidy-ml:dataset .
+docker build --target train-cascade -t colombia-subsidy-ml:train-cascade .
+docker build --target train-anomaly -t colombia-subsidy-ml:train-anomaly .
+docker build --target evaluate -t colombia-subsidy-ml:evaluate .
+docker build --target drift-check -t colombia-subsidy-ml:drift .
+docker build --target compile-kubeflow -t colombia-subsidy-ml:kubeflow-compiler .
+docker build --target airflow -t colombia-subsidy-ml:airflow .
+```
+
+Backward-compatible aliases remain available (`train`, `mlops`) for older workflows.
+
+### B. Drift monitoring with retraining decision output
+The drift pipeline still generates Evidently reports, and now also writes an explicit retraining decision file:
+- `artifacts/drift/drift_report.html`
+- `artifacts/drift/drift_report.json`
+- `artifacts/drift/drift_summary.json`
+- `artifacts/drift/drift_decision.json` (new)
+
+`configs/drift.yaml` now supports a `retraining_policy` block (e.g. `drift_share_threshold`, `min_drifted_columns`, `retrain_on_dataset_drift`) to decide whether the model should be retrained after a production drift check.
+
+### C. Airflow as top-level orchestrator (with drift-based branching)
+`docker-compose.yml` now includes an `orchestrator` profile with:
+- `postgres` (Airflow metadata DB)
+- `airflow-init`
+- `airflow-webserver`
+- `airflow-scheduler`
+- `mlflow`
+
+The Airflow DAG `colombia_subsidy_mlops_orchestrator` runs:
+1. `drift-check`
+2. Reads `artifacts/drift/drift_decision.json`
+3. Branches to retraining only when `should_retrain=true`
+4. Executes dataset build, cascade training, anomaly training, evaluation, and Kubeflow pipeline compilation
+
+Start the orchestration stack:
+```bash
+docker compose --profile orchestrator up -d postgres mlflow airflow-init
+docker compose --profile orchestrator up -d airflow-webserver airflow-scheduler
+```
+
+Airflow UI:
+- `http://localhost:8080` (default bootstrap user created by compose: `admin` / `admin`)
+
+### D. MLflow + Kubeflow integration improvements
+- Airflow-triggered jobs can enable MLflow tracking via environment variables (`SUBSIDY_MLFLOW_ENABLED`, `SUBSIDY_MLFLOW_TRACKING_URI`, `SUBSIDY_MLFLOW_EXPERIMENT_NAME`).
+- The Kubeflow compiler pipeline now accepts per-component images (dataset/train/evaluate/drift/anomaly) instead of a single shared image.
+
 ## License
 Apache License 2.0. Feel free to use the code and all the pipelines 
 
