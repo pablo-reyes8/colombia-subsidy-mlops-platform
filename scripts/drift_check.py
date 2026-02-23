@@ -10,3 +10,4 @@ if __name__ == "__main__":
     result = run_drift_check(args.config)
     print(f"Drift report dir: {result['output_dir']}")
     print(result["summary"])
+    print(result["decision"])

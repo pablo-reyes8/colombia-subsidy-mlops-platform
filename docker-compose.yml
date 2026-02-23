@@ -1,3 +1,53 @@
+name: colombia-subsidy-ml
+
+x-app-volumes: &app-volumes
+  - ./data:/app/data
+  - ./artifacts:/app/artifacts
+  - ./configs:/app/configs:ro
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    target: airflow
+  image: colombia-subsidy-ml:airflow
+  profiles: ["orchestrator"]
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "True"
+    AIRFLOW__CORE__FERNET_KEY: ""
+    DOCKER_HOST: unix:///var/run/docker.sock
+    PROJECT_ROOT_HOST_PATH: "${PWD:-.}"
+    AIRFLOW_PIPELINE_DOCKER_NETWORK: colombia-subsidy-ml_default
+    AIRFLOW_PIPELINE_DATASET_IMAGE: colombia-subsidy-ml:dataset
+    AIRFLOW_PIPELINE_TRAIN_CASCADE_IMAGE: colombia-subsidy-ml:train-cascade
+    AIRFLOW_PIPELINE_TRAIN_ANOMALY_IMAGE: colombia-subsidy-ml:train-anomaly
+    AIRFLOW_PIPELINE_EVALUATE_IMAGE: colombia-subsidy-ml:evaluate
+    AIRFLOW_PIPELINE_DRIFT_IMAGE: colombia-subsidy-ml:drift
+    AIRFLOW_PIPELINE_KFP_IMAGE: colombia-subsidy-ml:kubeflow-compiler
+    AIRFLOW_PIPELINE_DATASET_CONFIG: configs/dataset.yaml
+    AIRFLOW_PIPELINE_CASCADE_CONFIG: configs/train_cascade.yaml
+    AIRFLOW_PIPELINE_ANOMALY_CONFIG: configs/train_anomaly.yaml
+    AIRFLOW_PIPELINE_DRIFT_CONFIG: configs/drift.yaml
+    SUBSIDY_MLFLOW_ENABLED: "true"
+    SUBSIDY_MLFLOW_TRACKING_URI: http://mlflow:5000
+    SUBSIDY_MLOPS_ORCHESTRATOR: airflow
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./data:/opt/project/data
+    - ./artifacts:/opt/project/artifacts
+    - ./configs:/opt/project/configs:ro
+    - /var/run/docker.sock:/var/run/docker.sock
+  depends_on:
+    postgres:
+      condition: service_healthy
+    mlflow:
+      condition: service_started
+
 services:
   api:
     build:
@@ -14,47 +64,73 @@ services:
       - ./configs:/app/configs:ro
     command: ["subsidy-ml", "serve-api", "--host", "0.0.0.0", "--port", "8000"]
 
+  build-dataset:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: dataset
+    image: colombia-subsidy-ml:dataset
+    container_name: subsidy-build-dataset
+    volumes: *app-volumes
+
   train-cascade:
     profiles: ["jobs"]
     build:
       context: .
-      target: mlops
-    image: colombia-subsidy-ml:mlops
+      target: train-cascade
+    image: colombia-subsidy-ml:train-cascade
     container_name: subsidy-train-cascade
-    volumes:
-      - ./data:/app/data
-      - ./artifacts:/app/artifacts
-      - ./configs:/app/configs:ro
-    command: ["subsidy-ml", "train", "--config", "configs/train_cascade.yaml"]
+    volumes: *app-volumes
 
   train-anomaly:
     profiles: ["jobs"]
     build:
       context: .
-      target: mlops
-    image: colombia-subsidy-ml:mlops
+      target: train-anomaly
+    image: colombia-subsidy-ml:train-anomaly
     container_name: subsidy-train-anomaly
-    volumes:
-      - ./data:/app/data
-      - ./artifacts:/app/artifacts
-      - ./configs:/app/configs:ro
-    command: ["subsidy-ml", "train-anomaly", "--config", "configs/train_anomaly.yaml"]
+    volumes: *app-volumes
+
+  evaluate:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: evaluate
+    image: colombia-subsidy-ml:evaluate
+    container_name: subsidy-evaluate
+    volumes: *app-volumes
 
   drift-check:
     profiles: ["jobs"]
     build:
       context: .
-      target: mlops
-    image: colombia-subsidy-ml:mlops
+      target: drift-check
+    image: colombia-subsidy-ml:drift
     container_name: subsidy-drift-check
-    volumes:
-      - ./data:/app/data
-      - ./artifacts:/app/artifacts
-      - ./configs:/app/configs:ro
-    command: ["subsidy-ml", "drift-check", "--config", "configs/drift.yaml"]
+    volumes: *app-volumes
+
+  compile-kubeflow:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: compile-kubeflow
+    image: colombia-subsidy-ml:kubeflow-compiler
+    container_name: subsidy-compile-kubeflow
+    volumes: *app-volumes
+
+  mlops-shell:
+    profiles: ["jobs"]
+    build:
+      context: .
+      target: mlops-shell
+    image: colombia-subsidy-ml:mlops-shell
+    container_name: subsidy-mlops-shell
+    stdin_open: true
+    tty: true
+    volumes: *app-volumes
 
   mlflow:
-    profiles: ["tracking"]
+    profiles: ["tracking", "orchestrator"]
     image: python:3.11-slim
     container_name: subsidy-mlflow
     working_dir: /mlflow
@@ -72,3 +148,68 @@ services:
           --port 5000 \
           --backend-store-uri sqlite:///mlflow.db \
           --default-artifact-root /mlflow/artifacts
+
+  postgres:
+    profiles: ["orchestrator"]
+    image: postgres:15
+    container_name: subsidy-airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: subsidy-airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -lc
+      - |
+        mkdir -p /opt/airflow/logs /opt/airflow/plugins &&
+        airflow db migrate &&
+        (
+          airflow users create \
+            --role Admin \
+            --username admin \
+            --password admin \
+            --firstname Admin \
+            --lastname User \
+            --email admin@example.com || true
+        )
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: subsidy-airflow-webserver
+    command: ["airflow", "webserver"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: subsidy-airflow-scheduler
+    command: ["airflow", "scheduler"]
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+
+volumes:
+  airflow-db:

@@ -33,6 +33,13 @@ def build_pipeline_definition():
         )
 
     @dsl.container_component
+    def train_anomaly_component(image: str, config_path: str):
+        return dsl.ContainerSpec(
+            image=image,
+            command=["python", "-m", "colombia_subsidy_ml", "train-anomaly", "--config", config_path],
+        )
+
+    @dsl.container_component
     def evaluate_component(image: str, config_path: str):
         return dsl.ContainerSpec(
             image=image,
@@ -48,15 +55,34 @@ def build_pipeline_definition():
 
     @dsl.pipeline(name="colombia-subsidy-mlops")
     def subsidy_pipeline(
-        image: str = "colombia-subsidy-ml:latest",
+        image: str = "",
+        dataset_image: str = "colombia-subsidy-ml:dataset",
+        train_cascade_image: str = "colombia-subsidy-ml:train-cascade",
+        train_anomaly_image: str = "colombia-subsidy-ml:train-anomaly",
+        evaluate_image: str = "colombia-subsidy-ml:evaluate",
+        drift_image: str = "colombia-subsidy-ml:drift",
         dataset_config: str = "configs/dataset.yaml",
         cascade_config: str = "configs/train_cascade.yaml",
+        anomaly_config: str = "configs/train_anomaly.yaml",
         drift_config: str = "configs/drift.yaml",
     ):
-        build_task = build_dataset_component(image=image, config_path=dataset_config)
-        train_task = train_cascade_component(image=image, config_path=cascade_config).after(build_task)
-        evaluate_component(image=image, config_path=cascade_config).after(train_task)
-        drift_component(image=image, config_path=drift_config).after(train_task)
+        dataset_image_resolved = image or dataset_image
+        train_cascade_image_resolved = image or train_cascade_image
+        train_anomaly_image_resolved = image or train_anomaly_image
+        evaluate_image_resolved = image or evaluate_image
+        drift_image_resolved = image or drift_image
+
+        build_task = build_dataset_component(image=dataset_image_resolved, config_path=dataset_config)
+        train_task = train_cascade_component(
+            image=train_cascade_image_resolved,
+            config_path=cascade_config,
+        ).after(build_task)
+        train_anomaly_component(
+            image=train_anomaly_image_resolved,
+            config_path=anomaly_config,
+        ).after(build_task)
+        evaluate_component(image=evaluate_image_resolved, config_path=cascade_config).after(train_task)
+        drift_component(image=drift_image_resolved, config_path=drift_config).after(train_task)
 
     return subsidy_pipeline
 

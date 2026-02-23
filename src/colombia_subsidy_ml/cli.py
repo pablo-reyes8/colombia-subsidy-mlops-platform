@@ -86,6 +86,7 @@ def main(argv=None):
         result = run_drift_check(args.config)
         print(f"Drift report dir: {result['output_dir']}")
         print(result["summary"])
+        print(result["decision"])
         return 0
 
     if args.command == "compile-kubeflow":

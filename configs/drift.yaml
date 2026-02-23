@@ -12,6 +12,13 @@ output:
   html_name: drift_report.html
   json_name: drift_report.json
   summary_name: drift_summary.json
+  decision_name: drift_decision.json
+
+retraining_policy:
+  enabled: true
+  retrain_on_dataset_drift: true
+  drift_share_threshold: 0.30
+  min_drifted_columns: 3
 
 mlflow:
   enabled: false

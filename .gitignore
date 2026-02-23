@@ -20,6 +20,7 @@ artifacts/
 reports/
 data/raw/
 data/processed/
+airflow/logs/
 
 # OS
 .DS_Store

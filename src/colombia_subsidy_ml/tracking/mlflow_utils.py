@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, Optional
@@ -27,18 +28,36 @@ def _flatten_dict(data: Dict[str, Any], *, parent_key: str = "", sep: str = ".")
     return flattened
 
 
+def _parse_env_bool(value: Optional[str]) -> Optional[bool]:
+    if value is None:
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return None
+
+
 @contextmanager
 def start_mlflow_run(mlflow_cfg: Dict[str, Any], *, run_name: str) -> Iterator[bool]:
-    enabled = bool(mlflow_cfg.get("enabled", False))
+    env_enabled = _parse_env_bool(os.getenv("SUBSIDY_MLFLOW_ENABLED"))
+    enabled = bool(mlflow_cfg.get("enabled", False)) if env_enabled is None else bool(env_enabled)
     if not enabled:
         yield False
         return
 
     mlflow = _import_mlflow()
 
-    tracking_uri = mlflow_cfg.get("tracking_uri")
-    experiment_name = mlflow_cfg.get("experiment_name", "colombia-subsidy-ml")
-    tags = mlflow_cfg.get("tags", {})
+    tracking_uri = os.getenv("SUBSIDY_MLFLOW_TRACKING_URI") or mlflow_cfg.get("tracking_uri")
+    experiment_name = os.getenv("SUBSIDY_MLFLOW_EXPERIMENT_NAME") or mlflow_cfg.get(
+        "experiment_name",
+        "colombia-subsidy-ml",
+    )
+    tags = dict(mlflow_cfg.get("tags", {}))
+    orchestrator_tag = os.getenv("SUBSIDY_MLOPS_ORCHESTRATOR")
+    if orchestrator_tag:
+        tags.setdefault("orchestrator", orchestrator_tag)
 
     if tracking_uri:
         mlflow.set_tracking_uri(str(tracking_uri))
